@@ -1,0 +1,8 @@
+{
+  "name": "gestion-immobiliere-apk",
+  "version": "1.0.0",
+  "description": "Application de gestion immobilière et quittances",
+  "scripts": {
+    "test": "echo Test"
+  }
+}
