@@ -1,0 +1,42 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Télécharger le projet
+        uses: actions/checkout@v4
+
+      - name: Installer Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Installer les dépendances
+        run: |
+          npm install
+
+      - name: Ajouter Android Capacitor
+        run: |
+          npm install @capacitor/android
+          npx cap add android
+
+      - name: Synchroniser Capacitor
+        run: |
+          npx cap sync android
+
+      - name: Construire APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Publier APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: APK-Gestion-Immobiliere
+          path: android/app/build/outputs/apk/debug/app-debug.apk

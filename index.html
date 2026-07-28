@@ -3,20 +3,799 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestion Immobilière</title>
-    <link rel="stylesheet" href="style.css">
-</head>
+    <title>Gestion Immobilière - Quittances</title>
+    <!-- Script pour la génération directe de PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #2980b9;
+            --success: #27ae60;
+            --danger: #c0392b;
+            --bg: #f4f6f9;
+            --card-bg: #ffffff;
+        }
 
+        * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+        body { background: var(--bg); margin: 0; padding: 12px; color: #333; }
+        
+        .header { text-align: center; margin-bottom: 15px; }
+        .header h1 { margin: 0; font-size: 20px; color: var(--primary); }
+        
+        .config-box { background: white; padding: 12px; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        
+        .full-width { grid-column: span 2; }
+
+        details { margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; grid-column: span 2; }
+        summary { font-weight: bold; font-size: 13px; color: var(--accent); cursor: pointer; }
+        .preset-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 10px; max-height: 280px; overflow-y: auto; padding-right: 5px; }
+        .preset-item { background: #f8f9fa; padding: 8px; border-radius: 6px; border: 1px solid #e9ecef; }
+        .preset-item label { font-size: 11px; font-weight: bold; color: var(--primary); }
+        .preset-row { display: grid; grid-template-columns: 1fr 1fr 110px; gap: 6px; margin-top: 4px; }
+
+        .month-picker { text-align: center; margin-bottom: 15px; }
+        .month-picker input { padding: 8px 12px; font-size: 15px; border-radius: 8px; border: 1px solid #ccc; font-weight: bold; background: white; }
+
+        .dashboard { display: grid; grid-template-columns: 1fr; margin-bottom: 15px; }
+        .kpi { background: var(--card-bg); padding: 12px; border-radius: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .kpi span { font-size: 11px; text-transform: uppercase; color: #7f8c8d; font-weight: bold; display: block; }
+        .kpi strong { font-size: 16px; margin-top: 4px; display: block; color: var(--primary); }
+        .kpi.collected strong { color: var(--success); }
+
+        .houses-container { display: flex; flex-direction: column; gap: 15px; }
+        .house-card { background: var(--card-bg); padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-left: 5px solid var(--accent); }
+        
+        .house-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .house-header strong { font-size: 16px; color: var(--primary); }
+        
+        .form-group { margin-bottom: 8px; }
+        .form-group label { display: block; font-size: 11px; font-weight: bold; color: #555; margin-bottom: 2px; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; }
+        
+        .rent-input { border: 2px solid var(--success) !important; background-color: #f9fdfa !important; font-weight: bold; color: var(--success); }
+        .rent-label { color: var(--success) !important; font-size: 12px !important; }
+
+        .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+        .actions { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 4px; margin-top: 12px; }
+        .btn { padding: 8px 4px; border: none; border-radius: 6px; font-weight: bold; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 2px; }
+        .btn-wa { background: #25D366; color: white; }
+        .btn-sms { background: #8e44ad; color: white; }
+        .btn-pdf { background: #e74c3c; color: white; }
+        .btn-print { background: #3498db; color: white; }
+        .btn-add { background: var(--primary); color: white; width: 100%; padding: 12px; font-size: 14px; border-radius: 8px; margin: 15px 0 30px; cursor: pointer; }
+        .btn-del { background: #fceae8; color: var(--danger); border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+
+        /* ============================================================ */
+        /* STYLES DU REÇU CONFORMES AU FORMAT IMAGE                     */
+        /* ============================================================ */
+        .receipt-box {
+            width: 100%;
+            max-width: 580px;
+            margin: 0 auto;
+            padding: 25px;
+            background: #fdfbf7;
+            border: 1px solid #e6e1d7;
+            border-radius: 14px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.06);
+            color: #2b2b2b;
+            box-sizing: border-box;
+        }
+
+        .receipt-logo {
+            max-height: 45px;
+            width: auto;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .receipt-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 18px;
+        }
+
+        .receipt-tag {
+            font-size: 11px;
+            letter-spacing: 1.5px;
+            color: #9c9388;
+            font-weight: 600;
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .receipt-title {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 800;
+            color: #1a1a1a;
+            letter-spacing: 0.5px;
+        }
+
+        .receipt-number-badge {
+            border: 1.5px solid #c0392b;
+            color: #c0392b;
+            font-weight: 800;
+            font-size: 13px;
+            padding: 4px 12px;
+            border-radius: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .receipt-statement {
+            font-size: 13.5px;
+            color: #383531;
+            line-height: 1.6;
+            margin: 15px 0 10px 0;
+        }
+
+        .receipt-statement i {
+            font-weight: bold;
+            font-style: italic;
+        }
+
+        .receipt-divider {
+            border: 0;
+            border-top: 1px solid #e3ddd3;
+            margin: 12px 0;
+        }
+
+        .amount-card {
+            text-align: center;
+            padding: 12px 0;
+        }
+
+        .amount-number {
+            font-size: 30px;
+            font-weight: 900;
+            color: #1b365d;
+            font-style: italic;
+            letter-spacing: 0.5px;
+        }
+
+        .amount-words {
+            font-size: 12px;
+            color: #7a7368;
+            font-style: italic;
+            margin-top: 3px;
+        }
+
+        .receipt-details {
+            margin-top: 15px;
+            margin-bottom: 20px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px dashed #e2dcd2;
+            font-size: 13px;
+        }
+
+        .detail-label {
+            color: #8c8376;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+        }
+
+        .detail-value {
+            font-weight: 700;
+            font-style: italic;
+            color: #1f1f1f;
+        }
+
+        .receipt-footer-text {
+            font-size: 13px;
+            color: #333333;
+            margin-top: 25px;
+            margin-bottom: 10px;
+        }
+
+        .receipt-signature-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 5px;
+        }
+
+        .signature-block {
+            text-align: right;
+        }
+
+        .owner-name-display {
+            font-weight: 800;
+            font-style: italic;
+            font-size: 14px;
+            text-decoration: underline;
+            color: #1a1a1a;
+            margin-bottom: 6px;
+        }
+
+        @media print {
+            body * { visibility: hidden; }
+            #receipt-template, #receipt-template * { visibility: visible; }
+            #receipt-template { position: absolute; left: 0; top: 0; width: 100%; }
+        }
+    </style>
+</head>
 <body>
 
-    <h1>🏠 Gestion Immobilière</h1>
-
-    <div id="app">
-        <p>Application de gestion des maisons et quittances</p>
-        <button onclick="test()">Tester l'application</button>
+    <div class="header">
+        <h1>🏠 Gestion de Maisons & Quittances</h1>
     </div>
 
-    <script src="app.js"></script>
+    <div class="config-box">
+        <div class="config-grid">
+            <div class="form-group">
+                <label>Nom du Propriétaire :</label>
+                <input type="text" id="ownerName" value="KOUAKOU KOFFI Christian" onchange="saveOwnerConfig()">
+            </div>
+            <div class="form-group">
+                <label>Ville d'établissement :</label>
+                <input type="text" id="ownerCity" value="Abidjan" onchange="saveOwnerConfig()">
+            </div>
 
+            <details>
+                <summary>⚙️ Configuration des Maisons (Adresses & Loyers par défaut)</summary>
+                <div id="presetsConfigList" class="preset-grid"></div>
+            </details>
+        </div>
+    </div>
+
+    <div class="month-picker">
+        <input type="month" id="currentPeriod" onchange="changePeriod()">
+    </div>
+
+    <div class="dashboard">
+        <div class="kpi collected">
+            <span>Total Encaissé ce Mois</span>
+            <strong id="totalCollected">0 FCFA</strong>
+        </div>
+    </div>
+
+    <div id="housesList" class="houses-container"></div>
+
+    <button class="btn btn-add" onclick="addHouse()">➕ Ajouter un reçu/maison</button>
+
+    <div id="receipt-template" style="display:none;"></div>
+
+    <script>
+        var DEFAULT_ADDRESS = "DALOA BALOUZON 2 TOMBEAUX";
+        
+        var FIXED_LOGO_DATA = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
+            '<svg width="160" height="40" viewBox="0 0 160 40" xmlns="http://www.w3.org/2000/svg">' +
+            '<rect width="40" height="40" rx="8" fill="#2c3e50"/>' +
+            '<path d="M12 25 L20 17 L28 25 V30 H12 Z" fill="#ffffff"/>' +
+            '<polygon points="20,13 10,21 30,21" fill="#27ae60"/>' +
+            '<text x="48" y="25" font-family="Segoe UI, sans-serif" font-weight="bold" font-size="14" fill="#2c3e50">IMMO GESTION</text>' +
+            '</svg>'
+        );
+
+        var defaultPresets = [
+            { id: 1, name: "Maison 1", address: DEFAULT_ADDRESS, rent: 120000 },
+            { id: 2, name: "Maison 2", address: DEFAULT_ADDRESS, rent: 120000 },
+            { id: 3, name: "Maison 3", address: DEFAULT_ADDRESS, rent: 120000 },
+            { id: 4, name: "Maison 4", address: DEFAULT_ADDRESS, rent: 120000 }
+        ];
+
+        var housePresets = [];
+        var period = "";
+        var houses = [];
+
+        function numberToWordsFR(n) {
+            if (n === 0) return "zéro";
+            var units = ["", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix", "onze", "douze", "treize", "quatorze", "quinze", "seize", "dix-sept", "dix-huit", "dix-neuf"];
+            var tens = ["", "dix", "vingt", "trente", "quarante", "cinquante", "soixante", "soixante-dix", "quatre-vingts", "quatre-vingt-dix"];
+
+            function convertGroup(num) {
+                let res = "";
+                let h = Math.floor(num / 100);
+                let r = num % 100;
+                if (h > 0) {
+                    if (h === 1) res += "cent";
+                    else res += units[h] + " cent" + (r === 0 ? "s" : "");
+                }
+                if (r > 0) {
+                    if (res !== "") res += " ";
+                    if (r < 20) {
+                        res += units[r];
+                    } else {
+                        let t = Math.floor(r / 10);
+                        let u = r % 10;
+                        if (t === 7) {
+                            res += "soixante" + (u === 1 ? " et onze" : "-" + units[10 + u]);
+                        } else if (t === 9) {
+                            res += "quatre-vingt" + "-" + units[10 + u];
+                        } else if (t === 8) {
+                            res += "quatre-vingt" + (u === 0 ? "s" : "-" + units[u]);
+                        } else {
+                            res += tens[t] + (u === 1 ? " et un" : (u > 0 ? "-" + units[u] : ""));
+                        }
+                    }
+                }
+                return res;
+            }
+
+            let str = "";
+            let millions = Math.floor(n / 1000000);
+            let thousands = Math.floor((n % 1000000) / 1000);
+            let remainder = n % 1000;
+
+            if (millions > 0) {
+                if (millions === 1) str += "un million ";
+                else str += convertGroup(millions) + " millions ";
+            }
+            if (thousands > 0) {
+                if (thousands === 1) str += "mille ";
+                else str += convertGroup(thousands) + " mille ";
+            }
+            if (remainder > 0 || str === "") {
+                str += convertGroup(remainder);
+            }
+
+            return str.trim();
+        }
+
+        function amountInWordsFR(amount) {
+            var num = parseInt(amount) || 0;
+            if (num === 0) return "Zéro franc CFA";
+            var words = numberToWordsFR(num);
+            words = words.charAt(0).toUpperCase() + words.slice(1);
+            return words + " francs CFA";
+        }
+
+        function formatFrenchDate(dateStr) {
+            if (!dateStr) return '';
+            var parts = dateStr.split('-');
+            if (parts.length !== 3) return dateStr;
+            var months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+            var day = parseInt(parts[2], 10);
+            var monthIdx = parseInt(parts[1], 10) - 1;
+            var year = parts[0];
+            return day + " " + months[monthIdx] + " " + year;
+        }
+
+        function formatFrenchPeriod(periodStr) {
+            if (!periodStr) return '';
+            var parts = periodStr.split('-');
+            if (parts.length !== 2) return periodStr;
+            var months = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+            var monthIdx = parseInt(parts[1], 10) - 1;
+            var year = parts[0];
+            return months[monthIdx] + " " + year;
+        }
+
+        function saveOwnerConfig() {
+            var owner = document.getElementById('ownerName').value;
+            var city = document.getElementById('ownerCity').value;
+            localStorage.setItem('app_owner_name', owner);
+            localStorage.setItem('app_owner_city', city);
+        }
+
+        function renderPresetsConfig() {
+            var container = document.getElementById('presetsConfigList');
+            if (!container) return;
+            var html = '';
+            for (var i = 0; i < housePresets.length; i++) {
+                var p = housePresets[i];
+                html += '<div class="preset-item">';
+                html += '<label>Propriété N°' + p.id + ' :</label>';
+                html += '<div class="preset-row">';
+                html += '<input type="text" value="' + (p.name || '') + '" placeholder="Nom (ex: Villa 1)" onchange="updatePreset(' + i + ', \'name\', this.value)">';
+                html += '<input type="text" value="' + (p.address || '') + '" placeholder="Adresse" onchange="updatePreset(' + i + ', \'address\', this.value)">';
+                html += '<input type="number" value="' + (p.rent !== undefined ? p.rent : '') + '" placeholder="Loyer de base" onchange="updatePreset(' + i + ', \'rent\', this.value)">';
+                html += '</div></div>';
+            }
+            container.innerHTML = html;
+        }
+
+        function updatePreset(idx, field, value) {
+            housePresets[idx][field] = field === 'rent' ? parseFloat(value) || 0 : value;
+            localStorage.setItem('app_house_presets', JSON.stringify(housePresets));
+            render();
+        }
+
+        function changePeriod() {
+            period = document.getElementById('currentPeriod').value;
+            loadData();
+        }
+
+        function loadData() {
+            var saved = localStorage.getItem('app_houses_' + period);
+            if (saved) {
+                try {
+                    houses = JSON.parse(saved);
+                    for (var i = 0; i < houses.length; i++) {
+                        houses[i].tenant = houses[i].tenant || "";
+                        // Si le numéro est vide, on initialise avec +225
+                        houses[i].phone = houses[i].phone || "+225";
+                    }
+                } catch(e) {
+                    houses = [];
+                }
+            } else {
+                houses = [1].map(function(id) {
+                    var preset = housePresets.find(function(p) { return p.id === id; }) || { name: "Maison " + id, address: DEFAULT_ADDRESS, rent: 120000 };
+                    return {
+                        id: id,
+                        presetId: id,
+                        title: preset.name,
+                        address: preset.address || DEFAULT_ADDRESS,
+                        tenant: "",
+                        phone: "+225",
+                        rent: preset.rent || 120000,
+                        paymentType: "Loyer",
+                        monthsCount: 1,
+                        paid: false,
+                        paymentMode: "Espèces",
+                        paymentDate: new Date().toISOString().split('T')[0]
+                    };
+                });
+            }
+            render();
+        }
+
+        function saveData() {
+            localStorage.setItem('app_houses_' + period, JSON.stringify(houses));
+            calculateTotals();
+        }
+
+        function calculateTotals() {
+            var total = houses.reduce(function(acc, h) {
+                if (!h.paid) return acc;
+                var baseRent = parseFloat(h.rent) || 0;
+                var multiplier = parseInt(h.monthsCount) || 1;
+                return acc + (baseRent * multiplier);
+            }, 0);
+            document.getElementById('totalCollected').innerText = total.toLocaleString('fr-FR') + ' FCFA';
+        }
+
+        function updateValue(index, field, value) {
+            houses[index][field] = (field === 'rent' || field === 'monthsCount') ? parseFloat(value) || 0 : value;
+            saveData();
+            if (field === 'paid' || field === 'rent' || field === 'monthsCount') render();
+        }
+
+        function updatePaymentType(index, type) {
+            houses[index].paymentType = type;
+            if (type === 'Caution') {
+                houses[index].monthsCount = 2;
+            } else {
+                if (houses[index].monthsCount === 2) {
+                    houses[index].monthsCount = 1;
+                }
+            }
+            saveData();
+            render();
+        }
+
+        function onSelectHousePreset(index, presetId) {
+            if (!presetId) return;
+            var preset = housePresets.find(function(p) { return p.id == presetId; });
+            if (preset) {
+                houses[index].presetId = preset.id;
+                houses[index].title = preset.name;
+                houses[index].address = preset.address;
+                if (preset.rent !== undefined) houses[index].rent = preset.rent;
+                saveData();
+                render();
+            }
+        }
+
+        function addHouse() {
+            var newIdx = houses.length + 1;
+            var preset = housePresets.find(function(p) { return p.id === newIdx; }) || { name: "Maison " + newIdx, address: DEFAULT_ADDRESS, rent: 120000 };
+            
+            houses.push({
+                id: newIdx,
+                presetId: newIdx > 4 ? 1 : newIdx,
+                title: preset.name || ("Maison " + newIdx),
+                address: preset.address || DEFAULT_ADDRESS,
+                tenant: "",
+                phone: "+225",
+                rent: preset.rent || 120000,
+                paymentType: "Loyer",
+                monthsCount: 1,
+                paid: false,
+                paymentMode: "Espèces",
+                paymentDate: new Date().toISOString().split('T')[0]
+            });
+            saveData();
+            render();
+        }
+
+        function deleteHouse(index) {
+            if (confirm("Supprimer cette maison de la liste ?")) {
+                houses.splice(index, 1);
+                saveData();
+                render();
+            }
+        }
+
+        function render() {
+            var container = document.getElementById('housesList');
+            if (!container) return;
+            var html = '';
+
+            for (var index = 0; index < houses.length; index++) {
+                var house = houses[index];
+
+                var selectOptions = '<option value="">-- Choisir la configuration --</option>';
+                for (var j = 0; j < housePresets.length; j++) {
+                    var p = housePresets[j];
+                    var isSelected = (house.presetId == p.id) ? 'selected' : '';
+                    var addrText = p.address ? ' - (' + p.address.substring(0, 15) + '...)' : '';
+                    selectOptions += '<option value="' + p.id + '" ' + isSelected + '>' + p.name + addrText + '</option>';
+                }
+
+                var paidBg = house.paid ? '#e8f8f5' : '#fdebd0';
+                var isCaution = house.paymentType === 'Caution';
+
+                html += '<div class="house-card">';
+                html += '  <div class="house-header">';
+                html += '    <strong>' + (house.title || ('Maison ' + (index + 1))) + '</strong>';
+                html += '    <button class="btn-del" onclick="deleteHouse(' + index + ')">Supprimer</button>';
+                html += '  </div>';
+
+                html += '  <div class="form-group">';
+                html += '    <label>📍 Charger une configuration par défaut :</label>';
+                html += '    <select onchange="onSelectHousePreset(' + index + ', this.value)">' + selectOptions + '</select>';
+                html += '  </div>';
+
+                html += '  <div class="form-group"><label>Nom du Logement :</label><input type="text" value="' + (house.title || '') + '" placeholder="Ex: Maison 1" onchange="updateValue(' + index + ', \'title\', this.value)"></div>';
+
+                html += '  <div class="form-group"><label>Adresse / Description du Logement :</label><input type="text" value="' + (house.address || DEFAULT_ADDRESS) + '" placeholder="Ex: DALOA BALOUZON 2 TOMBEAUX" onchange="updateValue(' + index + ', \'address\', this.value)"></div>';
+
+                html += '  <div class="row-2">';
+                html += '    <div class="form-group"><label>Locataire :</label><input type="text" value="' + (house.tenant || '') + '" placeholder="Ex: N\'dri affoue Marina" onchange="updateValue(' + index + ', \'tenant\', this.value)"></div>';
+                html += '    <div class="form-group"><label>Téléphone / WhatsApp :</label><input type="tel" value="' + (house.phone || '+225') + '" placeholder="Ex: +2250700000000" onchange="updateValue(' + index + ', \'phone\', this.value)"></div>';
+                html += '  </div>';
+
+                html += '  <div class="row-2">';
+                html += '    <div class="form-group">';
+                html += '      <label>Type de Paiement :</label>';
+                html += '      <select onchange="updatePaymentType(' + index + ', this.value)">';
+                html += '        <option value="Loyer" ' + (house.paymentType === 'Loyer' ? 'selected' : '') + '>Loyer</option>';
+                html += '        <option value="Caution" ' + (house.paymentType === 'Caution' ? 'selected' : '') + '>Caution</option>';
+                html += '        <option value="Avance" ' + (house.paymentType === 'Avance' ? 'selected' : '') + '>Avance</option>';
+                html += '      </select>';
+                html += '    </div>';
+                html += '    <div class="form-group">';
+                html += '      <label>Nombre de Mois :</label>';
+                html += '      <div style="display: flex; align-items: center; gap: 6px;">';
+                html += '        <input type="number" ' + (isCaution ? 'readonly style="background:#eee;"' : '') + ' value="' + (house.monthsCount || 1) + '" min="1" onchange="updateValue(' + index + ', \'monthsCount\', this.value)">';
+                if (isCaution) {
+                    html += '    <span style="font-size:10px; color:#c0392b; font-weight:bold; white-space:nowrap;">(Double du loyer)</span>';
+                }
+                html += '      </div>';
+                html += '    </div>';
+                html += '  </div>';
+
+                html += '  <div class="row-2">';
+                html += '    <div class="form-group"><label class="rent-label">💰 Loyer de base (FCFA) :</label><input type="number" class="rent-input" value="' + (house.rent !== undefined ? house.rent : '') + '" placeholder="Montant du loyer" onchange="updateValue(' + index + ', \'rent\', this.value)"></div>';
+                
+                html += '    <div class="form-group">';
+                html += '      <label>Statut du Paiement :</label>';
+                html += '      <select onchange="updateValue(' + index + ', \'paid\', this.value === \'true\')" style="background-color: ' + paidBg + '">';
+                html += '        <option value="false" ' + (!house.paid ? 'selected' : '') + '>❌ Non Payé</option>';
+                html += '        <option value="true" ' + (house.paid ? 'selected' : '') + '>✅ Payé</option>';
+                html += '      </select>';
+                html += '    </div>';
+                html += '  </div>';
+
+                html += '  <div class="row-2">';
+                html += '    <div class="form-group">';
+                html += '      <label>Mode de Paiement :</label>';
+                html += '      <select onchange="updateValue(' + index + ', \'paymentMode\', this.value)">';
+                html += '        <option value="Espèces" ' + (house.paymentMode === 'Espèces' ? 'selected' : '') + '>Espèces</option>';
+                html += '        <option value="Wave" ' + (house.paymentMode === 'Wave' ? 'selected' : '') + '>Wave</option>';
+                html += '        <option value="Orange Money" ' + (house.paymentMode === 'Orange Money' ? 'selected' : '') + '>Orange Money</option>';
+                html += '        <option value="MTN Money" ' + (house.paymentMode === 'MTN Money' ? 'selected' : '') + '>MTN Money</option>';
+                html += '        <option value="Virement" ' + (house.paymentMode === 'Virement' ? 'selected' : '') + '>Virement</option>';
+                html += '      </select>';
+                html += '    </div>';
+                html += '    <div class="form-group"><label>Date de Paiement :</label><input type="date" value="' + (house.paymentDate || '') + '" onchange="updateValue(' + index + ', \'paymentDate\', this.value)"></div>';
+                html += '  </div>';
+
+                html += '  <div class="actions">';
+                html += '    <button class="btn btn-wa" onclick="sendWhatsApp(' + index + ')">💬 WhatsApp</button>';
+                html += '    <button class="btn btn-sms" onclick="sendSMS(' + index + ')">✉️ SMS</button>';
+                html += '    <button class="btn btn-pdf" onclick="downloadPDF(' + index + ')">📄 PDF</button>';
+                html += '    <button class="btn btn-print" onclick="printReceipt(' + index + ')">🖨️ Impr.</button>';
+                html += '  </div>';
+                html += '</div>';
+            }
+
+            container.innerHTML = html;
+            calculateTotals();
+        }
+
+        function generateReceiptHTML(house) {
+            var ownerName = localStorage.getItem('app_owner_name') || 'KOUAKOU KOFFI Christian';
+            var ownerCity = localStorage.getItem('app_owner_city') || 'Abidjan';
+
+            var formattedPaymentDate = formatFrenchDate(house.paymentDate);
+            
+            var today = new Date();
+            var yyyy = today.getFullYear();
+            var mm = String(today.getMonth() + 1).padStart(2, '0');
+            var dd = String(today.getDate()).padStart(2, '0');
+            var currentDateStr = yyyy + '-' + mm + '-' + dd;
+            var currentFormattedDate = formatFrenchDate(currentDateStr);
+
+            var formattedPeriod = formatFrenchPeriod(period);
+            var baseRent = parseFloat(house.rent) || 0;
+            var multiplier = parseInt(house.monthsCount) || 1;
+            var totalAmount = baseRent * multiplier;
+            
+            var titleTag = "QUITTANCE";
+            var receiptTitle = "REÇU DE LOYER";
+            if (house.paymentType === 'Caution') {
+                titleTag = "CAUTION";
+                receiptTitle = "REÇU DE CAUTION";
+            } else if (house.paymentType === 'Avance') {
+                titleTag = "AVANCE";
+                receiptTitle = "AVANCE SUR LOYER";
+            }
+
+            var logoHtml = `<img src="${FIXED_LOGO_DATA}" alt="Logo" class="receipt-logo">`;
+
+            return `
+                <div class="receipt-box">
+                    ${logoHtml}
+                    <div class="receipt-header-row">
+                        <div>
+                            <span class="receipt-tag">${titleTag}</span>
+                            <h2 class="receipt-title">${receiptTitle}</h2>
+                        </div>
+                        <div class="receipt-number-badge">
+                            ${house.paymentType || 'Loyer'}
+                        </div>
+                    </div>
+
+                    <p class="receipt-statement">
+                        Je soussigné(e) <i>${ownerName}</i> , propriétaire, reconnais avoir reçu de <i>${house.tenant || '___________________'}</i> la somme de :
+                    </p>
+
+                    <hr class="receipt-divider">
+
+                    <div class="amount-card">
+                        <div class="amount-number">${totalAmount.toLocaleString('fr-FR')} FCFA</div>
+                        <div class="amount-words">(${amountInWordsFR(totalAmount)})</div>
+                    </div>
+
+                    <hr class="receipt-divider">
+
+                    <div class="receipt-details">
+                        <div class="detail-row">
+                            <span class="detail-label">LOCATAIRE</span>
+                            <span class="detail-value">${house.tenant || '___________________'}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">TYPE DE PAIEMENT</span>
+                            <span class="detail-value">${house.paymentType || 'Loyer'} (${multiplier} mois)</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">PÉRIODE</span>
+                            <span class="detail-value">${formattedPeriod}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">LOGEMENT</span>
+                            <span class="detail-value">${house.title || ''}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">MODE DE PAIEMENT</span>
+                            <span class="detail-value">${house.paymentMode || 'Espèces'}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">DATE DE PAIEMENT</span>
+                            <span class="detail-value">${formattedPaymentDate}</span>
+                        </div>
+                    </div>
+
+                    <div class="receipt-footer-text">
+                        Fait à ${ownerCity} , le ${currentFormattedDate}
+                    </div>
+
+                    <div class="receipt-signature-section">
+                        <div class="signature-block">
+                            <div class="owner-name-display">${ownerName}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function printReceipt(index) {
+            var template = document.getElementById('receipt-template');
+            template.innerHTML = generateReceiptHTML(houses[index]);
+            window.print();
+        }
+
+        function downloadPDF(index) {
+            var house = houses[index];
+            var template = document.getElementById('receipt-template');
+            template.style.display = 'block';
+            template.innerHTML = generateReceiptHTML(house);
+
+            var opt = {
+                margin:       8,
+                filename:     (house.paymentType || 'Quittance') + '_' + (house.tenant || 'Locataire') + '_' + period + '.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(template).save().then(function() {
+                template.style.display = 'none';
+            });
+        }
+
+        function sendWhatsApp(index) {
+            var house = houses[index];
+            var ownerName = localStorage.getItem('app_owner_name') || 'KOUAKOU KOFFI Christian';
+            var baseRent = parseFloat(house.rent) || 0;
+            var multiplier = parseInt(house.monthsCount) || 1;
+            var totalAmount = baseRent * multiplier;
+
+            var msg = `Bonjour ${house.tenant || ''},\n\nVoici le récapitulatif de votre ${house.paymentType || 'paiement'} pour le mois de *${formatFrenchPeriod(period)}* :\n- *Type :* ${house.paymentType} (${multiplier} mois)\n- *Montant :* ${totalAmount.toLocaleString('fr-FR')} FCFA (${amountInWordsFR(totalAmount)})\n- *Mode de paiement :* ${house.paymentMode}\n- *Statut :* Payé ✅\n\nMerci,\n*${ownerName}*`;
+            
+            var cleanPhone = house.phone ? house.phone.replace(/[^0-9+]/g, '') : '';
+            
+            var url = (cleanPhone && cleanPhone !== '+225') 
+                ? "https://api.whatsapp.com/send?phone=" + cleanPhone.replace('+', '') + "&text=" + encodeURIComponent(msg)
+                : "https://api.whatsapp.com/send?text=" + encodeURIComponent(msg);
+                
+            window.open(url, '_blank');
+        }
+
+        function sendSMS(index) {
+            var house = houses[index];
+            var ownerName = localStorage.getItem('app_owner_name') || 'KOUAKOU KOFFI Christian';
+            var baseRent = parseFloat(house.rent) || 0;
+            var multiplier = parseInt(house.monthsCount) || 1;
+            var totalAmount = baseRent * multiplier;
+
+            var msg = `Bonjour ${house.tenant || ''}, reçu de ${house.paymentType || 'paiement'} (${formatFrenchPeriod(period)}) de ${totalAmount.toLocaleString('fr-FR')} FCFA. Mode: ${house.paymentMode}. Statut: Payé. Cordialement, ${ownerName}`;
+            
+            var cleanPhone = house.phone ? house.phone.replace(/[^0-9+]/g, '') : '';
+            var phoneParam = (cleanPhone && cleanPhone !== '+225') ? cleanPhone : '';
+            
+            // Utilisation du protocole sms: standard supporté par les navigateurs mobiles et applications par défaut
+            var url = "sms:" + phoneParam + "?body=" + encodeURIComponent(msg);
+            window.location.href = url;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var now = new Date();
+            var month = String(now.getMonth() + 1).padStart(2, '0');
+            period = now.getFullYear() + '-' + month;
+            document.getElementById('currentPeriod').value = period;
+
+            var savedName = localStorage.getItem('app_owner_name');
+            var savedCity = localStorage.getItem('app_owner_city');
+            if (savedName) document.getElementById('ownerName').value = savedName;
+            if (savedCity) document.getElementById('ownerCity').value = savedCity;
+
+            var savedPresets = localStorage.getItem('app_house_presets');
+            if (savedPresets) {
+                try { 
+                    housePresets = JSON.parse(savedPresets); 
+                } catch(e) { housePresets = defaultPresets; }
+            } else {
+                housePresets = defaultPresets;
+                localStorage.setItem('app_house_presets', JSON.stringify(housePresets));
+            }
+
+            renderPresetsConfig();
+            loadData();
+        });
+    </script>
 </body>
 </html>

@@ -1,8 +1,16 @@
 {
-  "name": "gestion-immobiliere-apk",
+  "name": "gestion-immobiliere",
   "version": "1.0.0",
   "description": "Application de gestion immobilière et quittances",
+  "main": "index.js",
   "scripts": {
-    "test": "echo Test"
+    "build": "echo Build OK"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
   }
 }
